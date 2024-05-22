@@ -30,17 +30,11 @@ class Hydrus:
         return {
                     "required": {
                         "images": ("IMAGE", ),
-                        "filename": ("STRING", {"default": f'%time_%seed', "multiline": False}),
-                        "extension": (['png', 'jpeg', 'tiff', 'gif'], ),
-                        "quality": ("INT", {"default": 100, "min": 1, "max": 100, "step": 1}),
                     },
                     "optional": {
                         "positive": ("STRING",{ "multiline": True, "forceInput": True}, ),
                         "negative": ("STRING",{"multiline": True, "forceInput": True}, ),
-                        "seed": ("INT",{"default": 0, "min": 0, "max": 0xffffffffffffffff, "forceInput": True}),
                         "modelname": ("STRING",{"default": '', "multiline": False, "forceInput": True}),
-                        "counter": ("INT",{"default": 0, "min": 0, "max": 0xffffffffffffffff }),
-                        "time_format": ("STRING", {"default": "%Y-%m-%d-%H%M%S", "multiline": False}),
                         "info": ("INFO",)
                     },
                     "hidden": {
@@ -56,9 +50,22 @@ class Hydrus:
 
     CATEGORY = "Hydrus"
 
-    def wtf(self, images, filename, extension, quality, positive=None, negative=None, seed=None, modelname=None, counter=None, time_format=None, info=None, prompt=None, extra_pnginfo=None):
-        print("Images: ", images)
+    def wtf(self, images, positive=None, negative=None, seed=None, modelname=None, counter=None, time_format=None, info={}, prompt=None, extra_pnginfo=None):
+        hydrus_api_key = ""
+        hydrus_api_url = ""
+        client = hydrus_api.Client(hydrus_api_key, hydrus_api_url)
         imagelist = []
+        meta = [
+            'positive: {}'.format(positive),
+            'negative: {}'.format(negative),
+            'modelname: {}'.format(modelname),
+            'seed: {}'.format(info['Seed: ']),
+            'steps: {}'.format(info['Steps: ']),
+            'cfg: {}'.format(info['CFG scale: ']),
+            'sampler: {}'.format(info['Sampler: ']),
+            'scheduler: {}'.format(info['Scheduler: '])
+        ]
+        print("Info: ", info)
         for image in images:
             comment = ""
             i = 255. * image.cpu().numpy()
@@ -76,32 +83,14 @@ class Hydrus:
             #self.import_image(img, metadata)
             imagefile = TemporaryFile()
             img.save(imagefile, "PNG", comment=comment, pnginfo=metadata, optimize=True)
-            print("Image File: ", imagefile)
             imagefile.seek(0)
-            self.import_image(imagefile)
-            imagelist.append(imagefile)
-
-
+            self.import_image(imagefile, client, meta)
+            imagelist.append(img)
         return imagelist
 
-    def debug(self, images, filename, extension, quality, positive=None, negative=None, seed=None, modelname=None, counter=None, time_format=None, info=None, prompt=None, extra_pnginfo=None):
-        print("Images: ", images)
-        print("Filename: ", filename)
-        print("Extension: ", extension)
-        print("Quality: ", quality)
-        print("Positive: ", positive)
-        print("Negative: ", negative)
-        print("Seed: ", seed)
-        print("Modelname: ", modelname)
-        print("Counter: ", counter)
-        print("Time Format: ", time_format)
-        print("Info: ", info)
-        print("Prompt: ", prompt)
-        print("Extra PNGInfo: ", extra_pnginfo)
-        return 'yay'
-
-    def make_tags(self, metadata=None):
+    def make_tags(self, meta=[]):
         tags = ['ai', 'comfyui', 'hyshare: ai']
+        tags = tags + meta
         return tags
 
     def get_hydrus_service_key(self, client):
@@ -116,26 +105,18 @@ class Hydrus:
     def add_and_tag(self, client, image, tags, tag_service_key):
         hash = ""
         result = client.add_file(image)
-        print(result)
         if result["status"] != ImportStatus.FAILED:
             hash = result["hash"]
-        print(hash)
         client.add_tags(hashes=[hash], service_keys_to_tags={tag_service_key: tags})
         return result
 
-
-    def import_image(self, image, metadata=None):
-        api_url = ""
-        api_key = ""
-        client = hydrus_api.Client(api_key, api_url)
+    def import_image(self, image, client, meta=None):
         if not hydrus_api.utils.verify_permissions(client, REQUIRED_PERMISSIONS):
             print("The API key does not grant all required permissions:", REQUIRED_PERMISSIONS)
             return 404
-
         tag_service_key = self.get_hydrus_service_key(client)
-        tags = self.make_tags(metadata)
+        tags = self.make_tags(meta)
         result = self.add_and_tag(client, image, tags, tag_service_key)
-    
         return result
 
 NODE_CLASS_MAPPINGS = {
