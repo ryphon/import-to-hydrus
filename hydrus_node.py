@@ -1,9 +1,13 @@
 from datetime import datetime
 import json
 import hydrus_api
+import hydrus_api
 import hydrus_api.utils
+from hydrus_api import ImportStatus
 import numpy as np
+from tempfile import TemporaryFile
 from PIL.PngImagePlugin import PngInfo
+from PIL import Image
 
 REQUIRED_PERMISSIONS = (hydrus_api.Permission.IMPORT_FILES, hydrus_api.Permission.ADD_TAGS)
 
@@ -17,66 +21,12 @@ def get_timestamp(time_format="%Y-%m-%d-%H%M%S"):
 
     return(timestamp)
 
-def make_filename(filename="ComfyUI", seed={"seed":0}, modelname="sd", counter=0, time_format="%Y-%m-%d-%H%M%S"):
-    '''
-    Builds a filename by reading in a filename format and returning a formatted string using input tokens
-    Tokens:
-    %time - timestamp using the time_format value
-    %model - modelname using the modelname input
-    %seed - seed from the seed input
-    %counter - counter integer from the counter input
-    '''
-    timestamp = get_timestamp(time_format)
-
-    # parse input string
-    filename = filename.replace("%time",timestamp)
-    filename = filename.replace("%model",modelname)
-    filename = filename.replace("%seed",str(seed))
-    filename = filename.replace("%counter",str(counter))  
-
-    if filename == "":
-        filename = timestamp
-    return(filename)  
-
-def make_tags(positive, negative, modelname="unknown", seed=-1, info=None):
-    tags = {}
-    tags['positive'] = positive
-    tags['negative'] = negative
-    tags['modelname'] = modelname
-    tags['seed'] = seed
-    tags['info'] = info
-    return tags
-
-def make_comment(positive, negative, modelname="unknown", seed=-1, info=None):
-    comment = ""
-    if(info is None):
-        comment = "Positive prompt:\n" + positive + "\nNegative prompt:\n" + negative + "\nModel: " + modelname + "\nSeed: " + str(seed)
-        return comment
-    else:
-        # reformat to stop long precision
-        try:
-            info['CFG scale: '] = "{:.2f}".format(info['CFG scale: '])
-        except:
-            pass
-        try:
-            info['Denoising strength: '] = "{:.2f}".format(info['Denoising strength: '])
-        except:
-            pass
-
-        comment = "Positive prompt:\n" + positive + "\nNegative prompt:\n" + negative + "\nModel: " + modelname
-        for key in info:
-            newline = "\n" + key + str(info[key])
-            comment += newline
-    # print(comment)
-    return comment
-
-
 class Hydrus:
     def __init__(self):
         pass
 
     @classmethod
-    def INPUT_TYPES(s):
+    def INPUT_TYPES(cls):
         return {
                     "required": {
                         "images": ("IMAGE", ),
@@ -94,50 +44,26 @@ class Hydrus:
                         "info": ("INFO",)
                     },
                     "hidden": {
-                        "prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"
+                        "prompt": "PROMPT",
+                        "extra_pnginfo": "EXTRA_PNGINFO"
                     },
                 }
 
-    RETURN_TYPES = ()
-    FUNCTION = "save_images"
+    RETURN_TYPES = []
+    FUNCTION = "wtf"
 
     OUTPUT_NODE = True
 
-    CATEGORY = "Hydrus/"
+    CATEGORY = "Hydrus"
 
-
-    def import_path(self, client: hydrus_api.Client, tags, file, tag_service_keys="my tags"):
-        hydrus_api.utils.add_and_tag_files(client, (file,), tags, tag_service_keys)
-    
-    
-    def import_image(self, image, metadata):
-        api_url = "
-        api_key = "
-        client = hydrus_api.Client(api_key, api_url)
-        if not hydrus_api.utils.verify_permissions(client, REQUIRED_PERMISSIONS):
-            print("The API key does not grant all required permissions:", REQUIRED_PERMISSIONS)
-            return 404
-        tag_service_keys = "my tags"
-        positive = metadata['positive']
-        negative = metadata['negative']
-        modelname = metadata['modelname']
-        seed = metadata['seed']
-        info = metadata['info']
-        make_tags(positive, negative, modelname, seed, info)
-        # Translate passed tag-service keys or names into keys. If there are multiple services with the same name we just
-        # take the first one
-        #service_mapping = hydrus_api.utils.get_service_mapping(client)
-        print(f"Importing image to Hydrus")
-        import_path(client, tags, image, tag_service_keys)
-    
-        return 404
-
-    def save_images(self, images, filename_prefix="ComfyUI", comment="", extension='png', quality=100, prompt=None, extra_pnginfo=None):
-        imgCount = 1
-        paths = list()
+    def wtf(self, images, filename, extension, quality, positive=None, negative=None, seed=None, modelname=None, counter=None, time_format=None, info=None, prompt=None, extra_pnginfo=None):
+        print("Images: ", images)
+        imagelist = []
         for image in images:
+            comment = ""
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+            # Setting up PNG metadata
             metadata = PngInfo()
             
             if prompt is not None:
@@ -147,17 +73,70 @@ class Hydrus:
                     metadata.add_text(x, json.dumps(extra_pnginfo[x]))
             metadata.add_text("parameters", comment)
             metadata.add_text("comment", comment)
-            if(images.size()[0] > 1):
-                filename_prefix += "_{:02d}".format(imgCount)
+            #self.import_image(img, metadata)
+            imagefile = TemporaryFile()
+            img.save(imagefile, "PNG", comment=comment, pnginfo=metadata, optimize=True)
+            print("Image File: ", imagefile)
+            imagefile.seek(0)
+            self.import_image(imagefile)
+            imagelist.append(imagefile)
 
-            file = f"{filename_prefix}.{extension}"
-            if extension == 'png':
-                # print(comment)
-                #img.save(os.path.join(output_path, file), comment=comment, pnginfo=metadata, optimize=True)
-                self.import_image(file, metadata)
-            else:
-                #img.save(os.path.join(output_path, file))
-                self.import_image(file, metadata)
+
+        return imagelist
+
+    def debug(self, images, filename, extension, quality, positive=None, negative=None, seed=None, modelname=None, counter=None, time_format=None, info=None, prompt=None, extra_pnginfo=None):
+        print("Images: ", images)
+        print("Filename: ", filename)
+        print("Extension: ", extension)
+        print("Quality: ", quality)
+        print("Positive: ", positive)
+        print("Negative: ", negative)
+        print("Seed: ", seed)
+        print("Modelname: ", modelname)
+        print("Counter: ", counter)
+        print("Time Format: ", time_format)
+        print("Info: ", info)
+        print("Prompt: ", prompt)
+        print("Extra PNGInfo: ", extra_pnginfo)
+        return 'yay'
+
+    def make_tags(self, metadata=None):
+        tags = ['ai', 'comfyui', 'hyshare: ai']
+        return tags
+
+    def get_hydrus_service_key(self, client):
+        local_tags = client.get_services().get('local_tags')
+        service_key = ""
+        for i in local_tags:
+            if i['name'] == 'my tags':
+                service_key = i['service_key']
+                break
+        return service_key
+
+    def add_and_tag(self, client, image, tags, tag_service_key):
+        hash = ""
+        result = client.add_file(image)
+        print(result)
+        if result["status"] != ImportStatus.FAILED:
+            hash = result["hash"]
+        print(hash)
+        client.add_tags(hashes=[hash], service_keys_to_tags={tag_service_key: tags})
+        return result
+
+
+    def import_image(self, image, metadata=None):
+        api_url = ""
+        api_key = ""
+        client = hydrus_api.Client(api_key, api_url)
+        if not hydrus_api.utils.verify_permissions(client, REQUIRED_PERMISSIONS):
+            print("The API key does not grant all required permissions:", REQUIRED_PERMISSIONS)
+            return 404
+
+        tag_service_key = self.get_hydrus_service_key(client)
+        tags = self.make_tags(metadata)
+        result = self.add_and_tag(client, image, tags, tag_service_key)
+    
+        return result
 
 NODE_CLASS_MAPPINGS = {
     #IO
