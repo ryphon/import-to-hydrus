@@ -23,17 +23,17 @@ def get_timestamp(time_format="%Y-%m-%d-%H%M%S"):
 
 class Hydrus:
     def __init__(self):
-        print("Hydrus Importer loaded!")
+        pass
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
                     "required": {
                         "images": ("IMAGE", ),
-                        "hydrus_api_key": ("STRING",),
-                        "hydrus_api_url": ("STRING",)
                     },
                     "optional": {
+                        "hydrus_api_key": ("STRING",),
+                        "hydrus_api_url": ("STRING",),
                         "positive": ("STRING",{ "multiline": True, "forceInput": True}, ),
                         "negative": ("STRING",{"multiline": True, "forceInput": True}, ),
                         "modelname": ("STRING",{"default": '', "multiline": False, "forceInput": True}),
@@ -54,7 +54,7 @@ class Hydrus:
     CATEGORY = "Hydrus"
 
     def wtf(self, images=[], hydrus_api_key="", hydrus_api_url="", positive="", negative="", modelname="", info={}, tags="", prompt=None, extra_pnginfo=None):
-        client = hydrus_api.Client(str(hydrus_api_key), str(hydrus_api_url))
+        client = hydrus_api.Client(hydrus_api_key, hydrus_api_url)
         imagelist = []
         split = tags.split()
         meta = []
