@@ -53,10 +53,11 @@ class Hydrus:
 
     CATEGORY = "Hydrus"
 
-    def wtf(self, images=[], hydrus_api_key="", hydrus_api_url="", positive="", negative="", modelname="", info={}, tags="", prompt=None, extra_pnginfo=None):
-        client = hydrus_api.Client(hydrus_api_key, hydrus_api_url)
+    def wtf(self, images, positive="", negative="", modelname="", info={}, tags="", prompt=None, extra_pnginfo=None):
+        client = hydrus_api.Client(hydrus_api_key, hydrus_url)
         imagelist = []
-        split = tags.split()
+        split = tags.split(',')
+        print("Prompt: {}".format(prompt))
         meta = []
         if positive != "":
             meta.append('positive: {}'.format(positive))
