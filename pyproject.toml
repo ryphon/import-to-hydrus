@@ -11,4 +11,4 @@ Repository = "https://github.com/ryphon/import-to-hydrus.git"
 [tool.comfy]
 PublisherId = "ryphon"
 DisplayName = "import-to-hydrus"
-Icon = "hydrus.png"
+Icon = "https://raw.githubusercontent.com/ryphon/import-to-hydrus/main/hydrus.png"
