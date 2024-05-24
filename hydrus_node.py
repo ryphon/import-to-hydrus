@@ -41,14 +41,15 @@ def get_hydrus_client():
         if not hydrus_key and not hydrus_url:
             dir_path = os.path.dirname(os.path.realpath(__file__))
             with open(os.path.join(dir_path, "hydrus_api.txt"), "r") as f:
-                keys = json.loads(f.read().strip())
-                hydrus_key = keys['hydrus_key']
-                hydrus_url = keys['hydrus_url']
+                api_file = json.loads(f.read())
+                hydrus_key = api_file['hydrus_key']
+                hydrus_url = api_file['hydrus_url']
             # Validate the key is not empty
-            if keys.strip() == "":
+            if api_file.keys() == "":
                 raise Exception(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in {dir_path}/hydrus_api.txt.")
 
     except Exception as e:
+        print("Exception: {}".format(e))
         print(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in hydrus_api.txt.")
 
     return hydrus_api.Client(hydrus_key, hydrus_url)
