@@ -46,10 +46,10 @@ def get_hydrus_client():
                 hydrus_url = keys['hydrus_url']
             # Validate the key is not empty
             if keys.strip() == "":
-                raise Exception(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in {dir_path}/hydrus_api_key.txt.")
+                raise Exception(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in {dir_path}/hydrus_api.txt.")
 
     except Exception as e:
-        print(e)
+        print(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in hydrus_api.txt.")
 
     return hydrus_api.Client(hydrus_key, hydrus_url)
 
