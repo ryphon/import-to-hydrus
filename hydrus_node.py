@@ -25,13 +25,14 @@ def get_timestamp(time_format="%Y-%m-%d-%H%M%S"):
     return(timestamp)
 
 def get_hydrus_client():
+    # Create a Hydrus client based on env vars or files. This is extremely unlikely to change in any meaningful time
     global hydrus_key
     global hydrus_url
     if hydrus_key is not None and hydrus_url is not None:
         return hydrus_api.Client(hydrus_key, hydrus_url)
 
     # Check for API key in file as a backup, not recommended
-    # Example:
+    # Example, note this isn't a real API key:
     # hydrus_api.txt
     #{
     #    "hydrus_key": "0150d9c4f6a6d2082534a997f4588dcf0c56dffe1d03ffbf98472236112236ae",
@@ -40,6 +41,7 @@ def get_hydrus_client():
     try:
         if not hydrus_key and not hydrus_url:
             dir_path = os.path.dirname(os.path.realpath(__file__))
+            # dir usually ends up being ComfyUI/custom_nodes/import-to-hydrus/hydrus_api.txt
             with open(os.path.join(dir_path, "hydrus_api.txt"), "r") as f:
                 api_file = json.loads(f.read())
                 hydrus_key = api_file['hydrus_key']
@@ -79,17 +81,19 @@ class Hydrus:
                 }
 
     RETURN_TYPES = []
-    FUNCTION = "wtf"
+    FUNCTION = "import_to_hydrus"
 
     OUTPUT_NODE = True
 
-    CATEGORY = "Hydrus"
+    CATEGORY = "image"
+    # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
 
-    def wtf(self, images, positive="", negative="", modelname="", loras="", info={}, tags="", prompt=None, extra_pnginfo=None):
+    def import_to_hydrus(self, images, positive="", negative="", modelname="", loras="", info={}, tags="", prompt=None, extra_pnginfo=None):
         client = get_hydrus_client()
         imagelist = []
         split = tags.split(',')
         meta = []
+        # I'm sure there's a better way to do this, but I'm a manager now so I have become a bad programmer
         if positive != "":
             meta.append('positive: {}'.format(positive))
         if negative != "":
@@ -105,9 +109,11 @@ class Hydrus:
             meta.append('cfg: {}'.format(info['CFG scale: ']))
             meta.append('sampler: {}'.format(info['Sampler: ']))
             meta.append('scheduler: {}'.format(info['Scheduler: ']))
+        # TIL lists can just be added together
         metatags = meta + split
         
         for image in images:
+            # From this line down to metadata.add_text is shamelessly stolen from the wlsh save with metadata node
             comment = ""
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
@@ -121,13 +127,15 @@ class Hydrus:
                     metadata.add_text(x, json.dumps(extra_pnginfo[x]))
             metadata.add_text("parameters", comment)
             metadata.add_text("comment", comment)
-            #self.import_image(img, metadata)
             imagefile = TemporaryFile()
             img.save(imagefile, "PNG", comment=comment, pnginfo=metadata, optimize=True)
+            # File gets saved, and the temp file requires seeking to "reset" back to the start of file
             imagefile.seek(0)
             self.import_image(imagefile, client, metatags)
+            # After import, the file (yet again) is read, so needs to be reset
             imagefile.seek(0)
             imagelist.append(imagefile)
+        # This doesn't return a preview of the image, I'm not sure wtf I'm doing wrong. Maybe it needs to be the img, w/e idk
         return imagelist
 
     def get_hydrus_service_key(self, client):
@@ -135,6 +143,8 @@ class Hydrus:
         service_key = ""
         for i in local_tags:
             if i['name'] == 'my tags':
+                # Currently hard coded to 'my tags' service.
+                # TODO: Let the tag service be dynamically chosen based on input
                 service_key = i['service_key']
                 break
         return service_key
@@ -142,6 +152,8 @@ class Hydrus:
     def add_and_tag(self, client, image, tags, tag_service_key):
         hash = ""
         result = client.add_file(image)
+        # How is the file service chosen? Trick question, it's default!
+        # TODO: let the file service(s) be an input
         if result["status"] != ImportStatus.FAILED:
             hash = result["hash"]
         client.add_tags(hashes=[hash], service_keys_to_tags={tag_service_key: tags})
