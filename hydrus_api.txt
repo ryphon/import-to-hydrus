@@ -1,0 +1,4 @@
+{
+    "hydrus_key": "0150d9c4f6a6d2082534a997f4588dcf0c56dffe1d03ffbf98472236112236ae",
+    "hydrus_url": "http://localhost:45869"
+}
