@@ -111,6 +111,7 @@ class Hydrus:
             meta.append('scheduler: {}'.format(info['Scheduler: ']))
         # TIL lists can just be added together
         metatags = meta + split
+        print("[Hydrus] Tags prepared, starting parsing through images...")
         
         for image in images:
             # From this line down to metadata.add_text is shamelessly stolen from the wlsh save with metadata node
@@ -131,6 +132,7 @@ class Hydrus:
             img.save(imagefile, "PNG", comment=comment, pnginfo=metadata, optimize=True)
             # File gets saved, and the temp file requires seeking to "reset" back to the start of file
             imagefile.seek(0)
+            print("[Hydrus] Importing Image...")
             self.import_image(imagefile, client, metatags)
             # After import, the file (yet again) is read, so needs to be reset
             imagefile.seek(0)
@@ -157,6 +159,7 @@ class Hydrus:
         if result["status"] != ImportStatus.FAILED:
             hash = result["hash"]
         client.add_tags(hashes=[hash], service_keys_to_tags={tag_service_key: tags})
+        print("[Hydrus] Done!")
         return result
 
     def import_image(self, image, client, tags=None):
