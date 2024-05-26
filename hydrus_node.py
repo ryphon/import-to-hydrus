@@ -13,6 +13,7 @@ from PIL import Image
 REQUIRED_PERMISSIONS = (hydrus_api.Permission.IMPORT_FILES, hydrus_api.Permission.ADD_TAGS)
 hydrus_key = os.environ.get("HYDRUS_KEY")
 hydrus_url = os.environ.get("HYDRUS_URL")
+hydrus_logging_prefix = "\033[0;34m[\033[0;39mHydrus\033[0;34m]\033[0;39m"
 
 # image I/O
 def get_timestamp(time_format="%Y-%m-%d-%H%M%S"):
@@ -52,7 +53,7 @@ def get_hydrus_client():
 
     except Exception as e:
         print("Exception: {}".format(e))
-        print(f"API Key is required to save the image outputs to Hydrus. \n PLease set the HYDRUS_API_KEY environment variable to your API key, \n and HYDRUS_API_URL to your API URL or place in hydrus_api.txt.")
+        print("{} API Key is required to save the image outputs to Hydrus. \n{} Please set the HYDRUS_API_KEY environment variable to your API key, \n{} and HYDRUS_API_URL to your API URL or place in hydrus_api.txt.".format(hydrus_logging_prefix, hydrus_logging_prefix, hydrus_logging_prefix))
 
     return hydrus_api.Client(hydrus_key, hydrus_url)
 
@@ -111,10 +112,12 @@ class Hydrus:
             meta.append('scheduler: {}'.format(info['Scheduler: ']))
         # TIL lists can just be added together
         metatags = meta + split
-        print("[Hydrus] Tags prepared, starting parsing through images...")
         
-        for image in images:
+        for index, image in enumerate(images):
             # From this line down to metadata.add_text is shamelessly stolen from the wlsh save with metadata node
+            image_quantity = len(images)
+            # Programmer things. Indicies start at 0, but "importing 0 out of n) doesnt make sense
+            image_index = index + 1
             comment = ""
             i = 255. * image.cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
@@ -132,7 +135,7 @@ class Hydrus:
             img.save(imagefile, "PNG", comment=comment, pnginfo=metadata, optimize=True)
             # File gets saved, and the temp file requires seeking to "reset" back to the start of file
             imagefile.seek(0)
-            print("[Hydrus] Importing Image...")
+            print("{} Importing Image {} out of {}...".format(hydrus_logging_prefix, image_index, image_quantity))
             self.import_image(imagefile, client, metatags)
             # After import, the file (yet again) is read, so needs to be reset
             imagefile.seek(0)
@@ -159,12 +162,12 @@ class Hydrus:
         if result["status"] != ImportStatus.FAILED:
             hash = result["hash"]
         client.add_tags(hashes=[hash], service_keys_to_tags={tag_service_key: tags})
-        print("[Hydrus] Done!")
+        print("{} Done!".format(hydrus_logging_prefix))
         return result
 
     def import_image(self, image, client, tags=None):
         if not hydrus_api.utils.verify_permissions(client, REQUIRED_PERMISSIONS):
-            print("The API key does not grant all required permissions:", REQUIRED_PERMISSIONS)
+            print("{} The API key does not grant all required permissions: {}".format(hydrus_logging_prefix, REQUIRED_PERMISSIONS))
             return 404
         tag_service_key = self.get_hydrus_service_key(client)
         result = self.add_and_tag(client, image, tags, tag_service_key)

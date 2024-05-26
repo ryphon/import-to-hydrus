@@ -1,27 +1,51 @@
-wip, should be mostly functional, but doesn't come with any assurances or garuntees.
+# ComfyUI Import to Hydrus
 
-set HYDRUS_KEY and HYDRUS_URL in your environment before you start Comfy, or fill in the file in the projects repo with your hydrus servers information
+## Overview
 
-attach all the relevant prompts.
+This project is a work in progress and should be mostly functional. However, it does not come with any assurances or guarantees.
 
-i've found that wlsh nodes export a LOT of the data you'd want to inject in
+## Setup
 
-rgthree nodes do a great job to organize things
+Before you start using Comfy, make sure to set `HYDRUS_KEY` and `HYDRUS_URL` in your environment variables. Alternatively, you can fill in the relevant information for your Hydrus server in the provided file within the project's repository. (`hydrus_api.txt`)
 
-crystools also have some very good pipe nodes to move the data along to the end of the workflow cleanly
+## Usage
 
-some time in the next few days ill go rebuild a simple workflow with saving to hydrus set up with vanilla comfy
+Attach all the relevant inputs to get started.
 
-your hydrus api token probably needs import files and add tags
+### Workflow Setup
 
-your hydrus server needs to be accessible from the system running comfyui. be sure that your dns is set intelligently/accordingly as well
+In the next few days, I plan to rebuild a simple workflow with saving to Hydrus set up using vanilla Comfy.
 
-the tags object takes a comma separated list of tags. if you want namespaces, just put them in
+### Hydrus API and Server
 
-example tags, `ai, comfyui, hyshare: ai`
+- Ensure your Hydrus API token is set up to import files and add tags as needed.
+- Your Hydrus server must be accessible from the system running ComfyUI. Make sure your DNS settings are configured appropriately.
 
-all the inputs except image are optional, you'll just end up with very limited tags on the image
+## Tags
 
-the node by default saves a ton of metadata to the png that gets created, i have a lot of storage so i just don't care
+The `tags` object accepts a comma-separated list of tags. To include namespaces, simply add them in the format `namespace:tag`.
 
-if i think of more i'll write it down, and find some time in the next few days to format correctly
+**Example Tags:**
+- `ai, comfyui, hyshare: ai`
+- `namespace: tag, namespace2: tag, namespace: tag2`
+
+All inputs except for the image are optional, but without them, the resulting image will have limited metadata.
+
+## Metadata
+
+By default, the node saves a significant amount of metadata to the generated PNG file. I've found it to be more useful than not, but if you don't want it included, don't attach the inputs to the node.
+
+## Node Recommendations
+
+- **[WLSH Nodes](https://github.com/wallish77/wlsh_nodes)**: These nodes export a substantial amount of data that can be useful for injection.
+- **[RGThree Nodes](https://github.com/rgthree/rgthree-comfy)**: These nodes are excellent for organizing various elements of your workflow.
+- **[CrysTools](https://github.com/crystian/ComfyUI-Crystools)**: These nodes provide effective pipeline tools to ensure data flows smoothly to the end of your workflow.
+
+
+## Future Updates
+
+If I think of more details or improvements, I will document them and ensure the README is formatted correctly in the coming days.
+
+---
+
+Feel free to contribute or provide feedback to improve this project!
