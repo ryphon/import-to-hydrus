@@ -14,7 +14,9 @@ Attach all the relevant inputs to get started.
 
 ### Workflow Setup
 
-In the next few days, I plan to rebuild a simple workflow with saving to Hydrus set up using vanilla Comfy.
+In this repo is a file "minimum.json". It requires WLSH, and RGThree, which are both excellent nodes to use anyway. This doesn't explicitly require them, but it absolutely utilizes the "info" from WLSH, and several pieces of RGthree.
+
+LORAs as a power loader output is open in a PR [here](https://github.com/rgthree/rgthree-comfy/pull/235).
 
 ### Hydrus API and Server
 
