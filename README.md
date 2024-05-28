@@ -16,6 +16,10 @@ Attach all the relevant inputs to get started.
 
 In this repo is a file "minimum.json". It requires WLSH, and RGThree, which are both excellent nodes to use anyway. This doesn't explicitly require them, but it absolutely utilizes the "info" from WLSH, and several pieces of RGthree.
 
+As well, drag this image onto the ComfyUI page to load the workflow, and then you can use the ComfyUI manager to install all missing custom nodes.
+
+![workflow](BasicFlow.png "Basic Workflo")
+
 LORAs as a power loader output is open in a PR [here](https://github.com/rgthree/rgthree-comfy/pull/235).
 
 ### Hydrus API and Server
