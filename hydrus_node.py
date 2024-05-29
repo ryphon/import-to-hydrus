@@ -1,10 +1,14 @@
 import os
 from datetime import datetime
 import json
-import hydrus_api
+import hashlib
+import torch
+import comfy
+from comfy import sd
 import hydrus_api
 import hydrus_api.utils
 from hydrus_api import ImportStatus
+import folder_paths
 import numpy as np
 from tempfile import TemporaryFile
 from PIL.PngImagePlugin import PngInfo
@@ -24,6 +28,17 @@ def get_timestamp(time_format="%Y-%m-%d-%H%M%S"):
         timestamp = now.strftime("%Y-%m-%d-%H%M%S")
 
     return(timestamp)
+
+def get_hydrus_service_key(client):
+    local_tags = client.get_services().get('local_tags')
+    service_key = ""
+    for i in local_tags:
+        if i['name'] == 'my tags':
+            # Currently hard coded to 'my tags' service.
+            # TODO: Let the tag service be dynamically chosen based on input
+            service_key = i['service_key']
+            break
+    return service_key
 
 def get_hydrus_client():
     # Create a Hydrus client based on env vars or files. This is extremely unlikely to change in any meaningful time
@@ -57,15 +72,128 @@ def get_hydrus_client():
 
     return hydrus_api.Client(hydrus_key, hydrus_url)
 
-class Hydrus:
+class HydrusExport:
     def __init__(self):
-        pass
+       self.client = get_hydrus_client()
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        input_dir = folder_paths.get_input_directory()
+        files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
+        return {
+                    "required": {
+                        "images":(sorted(files), {"image_upload": True} ),
+                    },
+                    "optional": {
+                    },
+                    "hidden": {
+                    },
+                }
+
+    RETURN_TYPES = ["IMAGE", "MODEL", "CLIP", "VAE", "STRING",    "STRING",   "STRING",   "STRING", "INFO"]
+    RETURN_NAMES = ["image", "model", "clip", "vae", "modelname", "positive", "negative", "loras",  "info"]
+    FUNCTION = "export_from_hydrus"
+
+    OUTPUT_NODE = False
+
+    CATEGORY = "image"
+    # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
+
+    def get_file_metadata(self, hash):
+        metadata = self.client.get_file_metadata(hashes={hash})['metadata'][0]
+        tag_service = get_hydrus_service_key(self.client)
+        tags = metadata['tags'][tag_service]['display_tags']['0']
+        outputs = {}
+        info = {}
+        outputs['loras'] = []
+        for i in tags:
+            print("Handling Tag: {}..".format(i))
+            if 'modelname:' in i:
+                outputs['modelname'] = i.replace('modelname:','')
+            if 'positive:' in i:
+                outputs['positive'] = i.replace('positive:','')
+            if 'negative:' in i:
+                outputs['negative'] = i.replace('negative:','')
+            if 'lora:' in i:
+                outputs['loras'].append(i.replace('lora:',''))
+
+            #{"Seed: ": 0, "Steps: ": 20, "CFG scale: ": 8.0, "Sampler: ": "euler", "Scheduler: ": "normal", "Start at step: ": 0, "End at step: ": 10000, "Denoising strength: ": 1.0}
+            if 'sampler:' in i:
+                sampler = i.replace('sampler:','')
+                info['Sampler: '] = str(sampler)
+                print("Info Sampler: {}".format(sampler))
+            if 'scheduler:' in i:
+                scheduler = i.replace('scheduler:','')
+                info['Scheduler: '] = str(scheduler)
+                print("Info Scheduler: {}".format(scheduler))
+            if 'seed:' in i:
+                seed = i.replace('seed:','')
+                info['Seed: '] = int(seed)
+                print("Info Seed: {}".format(seed))
+            if 'steps:' in i:
+                steps = i.replace('steps:','')
+                info['Steps: '] = int(steps)
+                print("Info Steps: {}".format(steps))
+            if 'cfg:' in i:
+                cfg = i.replace('cfg:','')
+                info['CFG scale: '] = float(cfg)
+                print("Info CFG scale: {}".format(cfg))
+
+        outputs['info'] = info
+        print("Metadata Outputs: {}".format(outputs))
+        return outputs
+
+    def get_file(self, hash):
+        file = self.client.get_file(hash)
+        response = file.content
+        return response
+
+    def checkpointer(self, ckpt_name=""):
+        ckpt_path = folder_paths.get_full_path('checkpoints', ckpt_name)
+        out = sd.load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True)
+        return out
+
+    def parse_name(self, ckpt_name):
+        path = ckpt_name
+        filename = path.split("/")[-1]
+        filename = filename.split(".")[:-1]
+        filename = ".".join(filename)
+        return filename
+
+    def export_from_hydrus(self, images=""):
+        image_path = folder_paths.get_annotated_filepath(images, './')
+        # The SDBatch Loader I'm using is weird, defaulting this to './' allowed to be pulled from input/ToBeUpscaled
+        print("{} Image: {}".format(hydrus_logging_prefix, images))
+        with open(image_path,'rb') as file:
+            hash = hashlib.sha256(file.read()).hexdigest()
+        tags = self.get_file_metadata(hash)
+        model = 'Pony/{}.safetensors'.format(tags['modelname'])
+        out = self.checkpointer(model)
+        hydrus = TemporaryFile()
+        hydrus_file = self.get_file(hash)
+        hydrus.write(hydrus_file)
+        img = Image.open(hydrus)
+        image = img.convert("RGB")
+        image = np.array(image).astype(np.float32) / 255.0
+        image = torch.from_numpy(image)[None,]
+        image_tuple = (image, )
+        model_tuple = out
+        print("Tags Info: {}".format(tags['info']))
+        tag_tuple = (tags['modelname'], tags['positive'], tags['negative'], tags['loras'], tags['info'],)
+        returned = image_tuple + model_tuple + tag_tuple
+        print("Model Tuple: {}".format(model_tuple))
+        print("Tag Tuple: {}".format(tag_tuple))
+        return returned
+
+class HydrusImport:
+    def __init__(self):
+        print("Adding Importer...")
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
                     "required": {
-                        "images": ("IMAGE", ),
+                        "images": ("IMAGE", {"forceInput": True}, ),
                     },
                     "optional": {
                         "positive": ("STRING",{ "multiline": True, "forceInput": True}, ),
@@ -77,7 +205,7 @@ class Hydrus:
                     },
                     "hidden": {
                         "prompt": "PROMPT",
-                        "extra_pnginfo": "EXTRA_PNGINFO"
+                        "extra_pnginfo": "EXTRA_PNGINFO",
                     },
                 }
 
@@ -143,16 +271,6 @@ class Hydrus:
         # This doesn't return a preview of the image, I'm not sure wtf I'm doing wrong. Maybe it needs to be the img, w/e idk
         return imagelist
 
-    def get_hydrus_service_key(self, client):
-        local_tags = client.get_services().get('local_tags')
-        service_key = ""
-        for i in local_tags:
-            if i['name'] == 'my tags':
-                # Currently hard coded to 'my tags' service.
-                # TODO: Let the tag service be dynamically chosen based on input
-                service_key = i['service_key']
-                break
-        return service_key
 
     def add_and_tag(self, client, image, tags, tag_service_key):
         hash = ""
@@ -169,11 +287,12 @@ class Hydrus:
         if not hydrus_api.utils.verify_permissions(client, REQUIRED_PERMISSIONS):
             print("{} The API key does not grant all required permissions: {}".format(hydrus_logging_prefix, REQUIRED_PERMISSIONS))
             return 404
-        tag_service_key = self.get_hydrus_service_key(client)
+        tag_service_key = get_hydrus_service_key(client)
         result = self.add_and_tag(client, image, tags, tag_service_key)
         return result
 
 NODE_CLASS_MAPPINGS = {
     #IO
-    "Hydrus Image Importer": Hydrus,
+    "Hydrus Image Importer": HydrusImport,
+    "Hydrus Image Exporter": HydrusExport
 }
