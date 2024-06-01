@@ -139,6 +139,9 @@ class HydrusExport:
     def checkpointer(self, ckpt_name=""):
         ckpt_path = folder_paths.get_full_path('checkpoints', ckpt_name)
         out = sd.load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True)
+        new_out = list(out)
+        new_out.pop()
+        out = tuple(new_out)
         return out
 
     def parse_name(self, ckpt_name):
@@ -161,7 +164,7 @@ class HydrusExport:
         image = torch.from_numpy(image)[None,]
         image_tuple = (image, )
         model_tuple = out
-        tag_tuple = (tags['modelname'], tags['positive'], tags['negative'], tags['loras'], tags['seed'])
+        tag_tuple = (tags['positive'], tags['negative'], tags['modelname'], tags['seed'], tags['loras'])
         returned = image_tuple + model_tuple + tag_tuple
         return returned
 
@@ -196,7 +199,7 @@ class HydrusImport:
                         "positive": ("STRING",{ "multiline": True, "forceInput": True}, ),
                         "negative": ("STRING",{"multiline": True, "forceInput": True}, ),
                         "modelname": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
-                        "seed": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
+                        "seed": ("STRING",{"default": '', "multiline": False, "forceInput": False},),
                         "loras": ("STRING",{"default": "", "forceInput": False},),
                         "tags": ("STRING",{"default": "ai, comfyui, hyshare: ai", "forceInput": True},),
                     },

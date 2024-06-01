@@ -1,0 +1,139 @@
+{
+  "7": {
+    "inputs": {
+      "upscale_by": 2,
+      "seed": 54041490283097,
+      "steps": 20,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.2,
+      "mode_type": "Linear",
+      "tile_width": 512,
+      "tile_height": 512,
+      "mask_blur": 8,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": true,
+      "tiled_decode": false,
+      "image": [
+        "59",
+        0
+      ],
+      "model": [
+        "59",
+        1
+      ],
+      "positive": [
+        "46",
+        0
+      ],
+      "negative": [
+        "47",
+        0
+      ],
+      "vae": [
+        "59",
+        3
+      ],
+      "upscale_model": [
+        "21",
+        0
+      ]
+    },
+    "class_type": "UltimateSDUpscale",
+    "_meta": {
+      "title": "Ultimate SD Upscale"
+    }
+  },
+  "21": {
+    "inputs": {
+      "model_name": "4x-AnimeSharp.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "Load Upscale Model"
+    }
+  },
+  "46": {
+    "inputs": {
+      "text": [
+        "59",
+        4
+      ],
+      "clip": [
+        "59",
+        2
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "47": {
+    "inputs": {
+      "text": [
+        "59",
+        5
+      ],
+      "clip": [
+        "59",
+        2
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "51": {
+    "inputs": {
+      "positive": [
+        "59",
+        4
+      ],
+      "negative": [
+        "59",
+        5
+      ],
+      "modelname": [
+        "59",
+        6
+      ],
+      "seed": [
+        "59",
+        7
+      ],
+      "loras": [
+        "59",
+        8
+      ],
+      "tags": "ai, comfyui, hyshare: ai, upscaled",
+      "images": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "Hydrus Image Importer",
+    "_meta": {
+      "title": "Hydrus Image Importer"
+    }
+  },
+  "59": {
+    "inputs": {
+      "images": "",
+      "hash": "",
+      "usetag": false,
+      "usehash": true
+    },
+    "class_type": "Hydrus Image Exporter",
+    "_meta": {
+      "title": "Hydrus Image Exporter"
+    }
+  }
+}
