@@ -82,16 +82,21 @@ class HydrusExport:
         files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
         return {
                     "required": {
-                        "images":(sorted(files), {"image_upload": True} ),
                     },
                     "optional": {
+                        "images": (sorted(files), {"image_upload": False},),
+                        "tag": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
+                        "hash": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
+                        "usetag": ("BOOLEAN", {"default": False},),
+                        "usehash": ("BOOLEAN", {"default": False},)
                     },
                     "hidden": {
                     },
                 }
 
-    RETURN_TYPES = ["IMAGE", "MODEL", "CLIP", "VAE", "STRING",    "STRING",   "STRING",   "STRING", "INFO"]
-    RETURN_NAMES = ["image", "model", "clip", "vae", "modelname", "positive", "negative", "loras",  "info"]
+
+    RETURN_TYPES = ["IMAGE", "MODEL", "CLIP", "VAE", "STRING",   "STRING",   "STRING",    "STRING", "STRING"]
+    RETURN_NAMES = ["image", "model", "clip", "vae", "positive", "negative", "modelname", "seed",   "loras"]
     FUNCTION = "export_from_hydrus"
 
     OUTPUT_NODE = False
@@ -99,48 +104,31 @@ class HydrusExport:
     CATEGORY = "image"
     # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
 
+    def get_files_with_tag(self, tag):
+        hash_list = []
+        file_ids = self.client.search_files([tag])['file_ids']
+        files_metadata = self.client.get_file_metadata(file_ids=file_ids)['metadata']
+        for individual_file in files_metadata:
+            hash_list.append(individual_file['hash'])
+        return hash_list
+
     def get_file_metadata(self, hash):
         metadata = self.client.get_file_metadata(hashes={hash})['metadata'][0]
         tag_service = get_hydrus_service_key(self.client)
         tags = metadata['tags'][tag_service]['display_tags']['0']
         outputs = {}
-        info = {}
         outputs['loras'] = []
         for i in tags:
-            print("Handling Tag: {}..".format(i))
             if 'modelname:' in i:
                 outputs['modelname'] = i.replace('modelname:','')
             if 'positive:' in i:
                 outputs['positive'] = i.replace('positive:','')
             if 'negative:' in i:
                 outputs['negative'] = i.replace('negative:','')
+            if 'seed:' in i:
+                outputs['seed'] = i.replace('seed:','')
             if 'lora:' in i:
                 outputs['loras'].append(i.replace('lora:',''))
-
-            #{"Seed: ": 0, "Steps: ": 20, "CFG scale: ": 8.0, "Sampler: ": "euler", "Scheduler: ": "normal", "Start at step: ": 0, "End at step: ": 10000, "Denoising strength: ": 1.0}
-            if 'sampler:' in i:
-                sampler = i.replace('sampler:','')
-                info['Sampler: '] = str(sampler)
-                print("Info Sampler: {}".format(sampler))
-            if 'scheduler:' in i:
-                scheduler = i.replace('scheduler:','')
-                info['Scheduler: '] = str(scheduler)
-                print("Info Scheduler: {}".format(scheduler))
-            if 'seed:' in i:
-                seed = i.replace('seed:','')
-                info['Seed: '] = int(seed)
-                print("Info Seed: {}".format(seed))
-            if 'steps:' in i:
-                steps = i.replace('steps:','')
-                info['Steps: '] = int(steps)
-                print("Info Steps: {}".format(steps))
-            if 'cfg:' in i:
-                cfg = i.replace('cfg:','')
-                info['CFG scale: '] = float(cfg)
-                print("Info CFG scale: {}".format(cfg))
-
-        outputs['info'] = info
-        print("Metadata Outputs: {}".format(outputs))
         return outputs
 
     def get_file(self, hash):
@@ -160,12 +148,7 @@ class HydrusExport:
         filename = ".".join(filename)
         return filename
 
-    def export_from_hydrus(self, images=""):
-        image_path = folder_paths.get_annotated_filepath(images, './')
-        # The SDBatch Loader I'm using is weird, defaulting this to './' allowed to be pulled from input/ToBeUpscaled
-        print("{} Image: {}".format(hydrus_logging_prefix, images))
-        with open(image_path,'rb') as file:
-            hash = hashlib.sha256(file.read()).hexdigest()
+    def prep_image(self, hash):
         tags = self.get_file_metadata(hash)
         model = 'Pony/{}.safetensors'.format(tags['modelname'])
         out = self.checkpointer(model)
@@ -178,16 +161,30 @@ class HydrusExport:
         image = torch.from_numpy(image)[None,]
         image_tuple = (image, )
         model_tuple = out
-        print("Tags Info: {}".format(tags['info']))
-        tag_tuple = (tags['modelname'], tags['positive'], tags['negative'], tags['loras'], tags['info'],)
+        tag_tuple = (tags['modelname'], tags['positive'], tags['negative'], tags['loras'], tags['seed'])
         returned = image_tuple + model_tuple + tag_tuple
-        print("Model Tuple: {}".format(model_tuple))
-        print("Tag Tuple: {}".format(tag_tuple))
         return returned
+
+    def export_from_hydrus(self, images="", tag="", hash="", usehash=False, usetag=False):
+        return_batch = []
+        if usetag:
+            hash_list = self.get_files_with_tag(tag)
+            for hash in hash_list:
+                return_batch.append(self.prep_image(hash))
+        elif usehash:
+            return_batch.append(self.prep_image(hash))
+        else:
+            image_path = folder_paths.get_annotated_filepath(images, './')
+            # The SDBatch Loader I'm using is weird, defaulting this to './' allowed to be pulled from input/ToBeUpscaled
+            print("{} Image: {}".format(hydrus_logging_prefix, images))
+            with open(image_path,'rb') as file:
+                hash = hashlib.sha256(file.read()).hexdigest()
+                return_batch.append(self.prep_image(hash))
+        return return_batch[0]
 
 class HydrusImport:
     def __init__(self):
-        print("Adding Importer...")
+        pass
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -199,8 +196,8 @@ class HydrusImport:
                         "positive": ("STRING",{ "multiline": True, "forceInput": True}, ),
                         "negative": ("STRING",{"multiline": True, "forceInput": True}, ),
                         "modelname": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
+                        "seed": ("STRING",{"default": '', "multiline": False, "forceInput": True},),
                         "loras": ("STRING",{"default": "", "forceInput": False},),
-                        "info": ("INFO",),
                         "tags": ("STRING",{"default": "ai, comfyui, hyshare: ai", "forceInput": True},),
                     },
                     "hidden": {
@@ -217,7 +214,7 @@ class HydrusImport:
     CATEGORY = "image"
     # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
 
-    def import_to_hydrus(self, images, positive="", negative="", modelname="", loras="", info={}, tags="", prompt=None, extra_pnginfo=None):
+    def import_to_hydrus(self, images, positive="", negative="", modelname="", seed="", loras="", tags="", prompt=None, extra_pnginfo=None):
         client = get_hydrus_client()
         imagelist = []
         split = tags.split(',')
@@ -229,16 +226,12 @@ class HydrusImport:
             meta.append('negative: {}'.format(negative))
         if modelname != "":
             meta.append('modelname: {}'.format(modelname))
-        if loras != []:
+        if loras != "":
             for lora in loras:
                 meta.append('lora: {}'.format(lora))
-        if info != {}:
-            meta.append('seed: {}'.format(info['Seed: ']))
-            meta.append('steps: {}'.format(info['Steps: ']))
-            meta.append('cfg: {}'.format(info['CFG scale: ']))
-            meta.append('sampler: {}'.format(info['Sampler: ']))
-            meta.append('scheduler: {}'.format(info['Scheduler: ']))
-        # TIL lists can just be added together
+        if seed != "":
+            meta.append('seed: {}'.format(seed))
+
         metatags = meta + split
         
         for index, image in enumerate(images):
