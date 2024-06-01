@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import json
+import time
 import hashlib
 import torch
 import comfy
@@ -185,6 +186,59 @@ class HydrusExport:
                 return_batch.append(self.prep_image(hash))
         return return_batch[0]
 
+class HydrusDuplicates:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+                    "required": {
+                        "original_hash": ("STRING",{ "multiline": True, "forceInput": True}, ),
+                        "upscaled_hash": ("STRING",{ "multiline": True, "forceInput": True}, ),
+                    },
+                    "optional": {
+                    },
+                    "hidden": {
+                    },
+                }
+
+    RETURN_TYPES = []
+    FUNCTION = "dedupe"
+
+    OUTPUT_NODE = True
+
+    CATEGORY = "image"
+
+#{
+#  "relationships" : [
+#    {
+#      "hash_a" : "b54d09218e0d6efc964b78b070620a1fa19c7e069672b4c6313cee2c9b0623f2",
+#      "hash_b" : "bbaa9876dab238dcf5799bfd8319ed0bab805e844f45cf0de33f40697b11a845",
+#      "relationship" : 4,
+#      "do_default_content_merge" : true,
+#      "delete_b" : true
+#    }
+#}
+
+    def dedupe(self, original_hash="", upscaled_hash=""):
+        client = get_hydrus_client()
+        time.sleep(5)
+        print("Orig: {}".format(original_hash))
+        print("Upscale: {}".format(upscaled_hash))
+        body = [
+            {
+                "hash_a": original_hash,
+                "hash_b": upscaled_hash,
+                "relationship": 4,
+                "do_default_content_merge": True
+            }
+        ]
+        print("Body: {}".format(body))
+
+        results = client.set_file_relationships(body)
+        return results
+
 class HydrusImport:
     def __init__(self):
         pass
@@ -202,6 +256,7 @@ class HydrusImport:
                         "seed": ("STRING",{"default": '', "multiline": False, "forceInput": False},),
                         "loras": ("STRING",{"default": "", "forceInput": False},),
                         "tags": ("STRING",{"default": "ai, comfyui, hyshare: ai", "forceInput": True},),
+                        "dedupe": ("BOOLEAN", {"default": False},),
                     },
                     "hidden": {
                         "prompt": "PROMPT",
@@ -209,15 +264,17 @@ class HydrusImport:
                     },
                 }
 
-    RETURN_TYPES = []
+    RETURN_TYPES = ["STRING"]
+    RETURN_NAMES = ["upscale_hash"]
     FUNCTION = "import_to_hydrus"
-
-    OUTPUT_NODE = True
+    
+    #OUTPUT_IS_LIST = (True,)
+    OUTPUT_NODE = False
 
     CATEGORY = "image"
     # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
 
-    def import_to_hydrus(self, images, positive="", negative="", modelname="", seed="", loras="", tags="", prompt=None, extra_pnginfo=None):
+    def import_to_hydrus(self, images, positive="", negative="", modelname="", seed="", loras="", tags="", dedupe=False, prompt=None, extra_pnginfo=None):
         client = get_hydrus_client()
         imagelist = []
         split = tags.split(',')
@@ -263,7 +320,10 @@ class HydrusImport:
             self.import_image(imagefile, client, metatags)
             # After import, the file (yet again) is read, so needs to be reset
             imagefile.seek(0)
-            imagelist.append(imagefile)
+            hash = hashlib.sha256(imagefile.read()).hexdigest()
+            if dedupe:
+                #Deduplication should only occur with one image because I'm cringe and don't know what I'm doing
+                return hash
         # This doesn't return a preview of the image, I'm not sure wtf I'm doing wrong. Maybe it needs to be the img, w/e idk
         return imagelist
 
@@ -290,5 +350,6 @@ class HydrusImport:
 NODE_CLASS_MAPPINGS = {
     #IO
     "Hydrus Image Importer": HydrusImport,
-    "Hydrus Image Exporter": HydrusExport
+    "Hydrus Image Exporter": HydrusExport,
+    "Hydrus Image Dedupe": HydrusDuplicates
 }
