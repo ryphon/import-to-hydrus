@@ -269,7 +269,7 @@ class HydrusImport:
     FUNCTION = "import_to_hydrus"
     
     #OUTPUT_IS_LIST = (True,)
-    OUTPUT_NODE = False
+    OUTPUT_NODE = True
 
     CATEGORY = "image"
     # I had this in Hydrus originally, honestly smarter to just have it alongside the other image savers
