@@ -154,7 +154,8 @@ class HydrusExport:
 
     def prep_image(self, hash):
         tags = self.get_file_metadata(hash)
-        model = 'Pony/{}.safetensors'.format(tags['modelname'])
+        model = '{}.safetensors'.format(tags['modelname'])
+        # add something to search the models directory
         out = self.checkpointer(model)
         hydrus = TemporaryFile()
         hydrus_file = self.get_file(hash)
