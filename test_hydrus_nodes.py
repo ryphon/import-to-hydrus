@@ -61,9 +61,9 @@ class TestHydrusImport:
         mock_verify_perms.return_value = False
         
         hydrus_import = HydrusImport()
-        result = hydrus_import.import_image("fake_image_data", mock_hydrus_client, ["tag1"])
         
-        assert result == 404
+        with pytest.raises(PermissionError):
+            hydrus_import.import_image("fake_image_data", mock_hydrus_client, ["tag1"])
     
     @patch('hydrus_node.get_hydrus_client')
     def test_add_and_tag(self, mock_get_client, mock_hydrus_client):
